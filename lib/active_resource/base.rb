@@ -601,8 +601,8 @@ module ActiveResource
       end
 
       def headers
-        Thread.current["active.resource.headers.#{self.object_id}"] ||= {}         
-        
+        Thread.current["active.resource.headers.#{self.object_id}"] ||= {}
+
         if superclass != Object && superclass.headers
           Thread.current["active.resource.headers.#{self.object_id}"] = superclass.headers.merge(Thread.current["active.resource.headers.#{self.object_id}"])
         else
@@ -820,6 +820,7 @@ module ActiveResource
       # ==== Options
       #
       # * <tt>:from</tt> - Sets the path or custom method that resources will be fetched from.
+      # * <tt>:headers</tt> - Overrides class headers for the query.
       # * <tt>:params</tt> - Sets query and \prefix (nested URL) parameters.
       #
       # ==== Examples
@@ -953,17 +954,18 @@ module ActiveResource
 
         # Find every resource
         def find_every(options)
+          request_headers = headers.merge(options.fetch(:headers, {}))
           begin
             case from = options[:from]
             when Symbol
               instantiate_collection(get(from, options[:params]), options[:params])
             when String
               path = "#{from}#{query_string(options[:params])}"
-              instantiate_collection(format.decode(connection.get(path, headers).body) || [], options[:params])
+              instantiate_collection(format.decode(connection.get(path, request_headers).body) || [], options[:params])
             else
               prefix_options, query_options = split_options(options[:params])
               path = collection_path(prefix_options, query_options)
-              instantiate_collection( (format.decode(connection.get(path, headers).body) || []), query_options, prefix_options )
+              instantiate_collection( (format.decode(connection.get(path, request_headers).body) || []), query_options, prefix_options )
             end
           rescue ActiveResource::ResourceNotFound
             # Swallowing ResourceNotFound exceptions and return nil - as per
@@ -974,20 +976,22 @@ module ActiveResource
 
         # Find a single resource from a one-off URL
         def find_one(options)
+          request_headers = headers.merge(options.fetch(:headers, {}))
           case from = options[:from]
           when Symbol
             instantiate_record(get(from, options[:params]))
           when String
             path = "#{from}#{query_string(options[:params])}"
-            instantiate_record(format.decode(connection.get(path, headers).body))
+            instantiate_record(format.decode(connection.get(path, request_headers).body))
           end
         end
 
         # Find a single resource from the default URL
         def find_single(scope, options)
+          request_headers = headers.merge(options.fetch(:headers, {}))
           prefix_options, query_options = split_options(options[:params])
           path = element_path(scope, prefix_options, query_options)
-          instantiate_record(format.decode(connection.get(path, headers).body), prefix_options)
+          instantiate_record(format.decode(connection.get(path, request_headers).body), prefix_options)
         end
 
         def instantiate_collection(collection, original_params = {}, prefix_options = {})
